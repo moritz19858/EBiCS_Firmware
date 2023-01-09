@@ -219,10 +219,7 @@ enum state SystemState;
 #define sign(x) (((x) >= 0)?(1):(-1))
 
 
-//variables for display communication
-#if (DISPLAY_TYPE & DISPLAY_TYPE_KINGMETER)
-KINGMETER_t KM;
-#endif
+
 
 //variables for display communication
 #if (DISPLAY_TYPE == DISPLAY_TYPE_BAFANG)
@@ -239,6 +236,11 @@ uint8_t ui8_LEV_Page_to_send=1;
 
 MotorState_t MS;
 MotorParams_t MP;
+
+//variables for display communication
+#if (DISPLAY_TYPE & DISPLAY_TYPE_KINGMETER)
+KINGMETER_t KM;
+#endif
 
 //structs for PI_control
 PI_control_t PI_iq;
@@ -605,9 +607,12 @@ int main(void)
 	  PI_flag=0;
 	  }*/
 	  //display message processing
+
+	 // KingMeter_Service(&KM);
 	  if(ui8_UART_flag==1){
 #if (DISPLAY_TYPE & DISPLAY_TYPE_KINGMETER)
-	  kingmeter_update();
+	 // kingmeter_update();
+	 KingMeter_Service(&KM);
 #endif
 
 
@@ -716,6 +721,8 @@ int main(void)
 			}
 		}
 #endif
+
+
 
 		//--------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -831,18 +838,18 @@ int main(void)
 	  //slow loop procedere @16Hz, for LEV standard every 4th loop run, send page,
 	  if(ui32_tim3_counter>500){
 
-
-		if(HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin)){
-
-      	//HAL_GPIO_WritePin(LIGHT_GPIO_Port, LIGHT_Pin, GPIO_PIN_RESET);
-      	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-      	//HAL_GPIO_WritePin(BRAKE_LIGHT_GPIO_Port, BRAKE_LIGHT_Pin, GPIO_PIN_RESET);
-		}
-		else{
-	      	//HAL_GPIO_WritePin(LIGHT_GPIO_Port, LIGHT_Pin, GPIO_PIN_SET);
-	      	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-	      	//HAL_GPIO_WritePin(BRAKE_LIGHT_GPIO_Port, BRAKE_LIGHT_Pin, GPIO_PIN_SET);
-		}
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+//		if(HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin)){
+//
+//      	//HAL_GPIO_WritePin(LIGHT_GPIO_Port, LIGHT_Pin, GPIO_PIN_RESET);
+//      	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+//      	//HAL_GPIO_WritePin(BRAKE_LIGHT_GPIO_Port, BRAKE_LIGHT_Pin, GPIO_PIN_RESET);
+//		}
+//		else{
+//	      	//HAL_GPIO_WritePin(LIGHT_GPIO_Port, LIGHT_Pin, GPIO_PIN_SET);
+//	      	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+//	      	//HAL_GPIO_WritePin(BRAKE_LIGHT_GPIO_Port, BRAKE_LIGHT_Pin, GPIO_PIN_SET);
+//		}
 
 
 		  if(ui8_KV_detect_flag){ui16_KV_detect_counter++;}
@@ -884,6 +891,8 @@ int main(void)
 		  }
 		  else if(ui8_6step_flag) SystemState = SixStep;
 		  else SystemState = Running;
+
+
 
 #if (DISPLAY_TYPE == DISPLAY_TYPE_DEBUG && !defined(FAST_LOOP_LOG))
 		  //print values for debugging
@@ -1381,7 +1390,7 @@ static void MX_USART1_UART_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
-
+  __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
 }
 
 static void MX_USART3_UART_Init(void)
@@ -1395,21 +1404,21 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
+  huart3.Init.BaudRate = 56000;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
   huart3.Init.Mode = UART_MODE_TX_RX;
   huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-//  if (HAL_HalfDuplex_Init(&huart3) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
-  if (HAL_UART_Init(&huart3) != HAL_OK)
+  if (HAL_HalfDuplex_Init(&huart3) != HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    Error_Handler();
   }
+//  if (HAL_UART_Init(&huart3) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
@@ -1435,8 +1444,8 @@ static void MX_DMA_Init(void)
   HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
   /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
+ // HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+ // HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
   /* DMA1_Channel3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
@@ -1823,10 +1832,33 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
 {
-	if(UartHandle == &huart1) ui8_UART_flag=1;
+	//if(UartHandle == &huart1) ui8_UART_flag=1;
 
-	else ui8_UART_flag=3;
+	//else
+		ui8_UART_flag=3;
 
+}
+void UART_IdleItCallback(void)
+{
+
+	ui8_UART_flag=1;
+//    // CNDTR : number of data to be transferred
+//    // after each peripheral event, this value is decremented
+//    if (prevCNDTR < DMA1_Channel5->CNDTR)
+//    {
+//        // example: prevCNDTR = 3, CNDTR = 60, DISPLAY_SIZE_RX_BUFFER = 64
+//        // -> bytes_received = 64 - 60 + 3 = 7
+//        ui8_bytes_received = DISPLAY_SIZE_RX_BUFFER - DMA1_Channel5->CNDTR + prevCNDTR;
+//    }
+//    else
+//    {
+//        // example: prevCNDTR = 64, CNDTR = 61 -> bytes_received = 3
+//        ui8_bytes_received = prevCNDTR - DMA1_Channel5->CNDTR;
+//    }
+//    prevCNDTR = DMA1_Channel5->CNDTR;
+//    ui8_buffer_index2 = (ui8_buffer_index2 + ui8_bytes_received) % DISPLAY_SIZE_RX_BUFFER;
+//
+//    ui8_g_UART_Rx_flag = 1;
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
@@ -1888,10 +1920,10 @@ void kingmeter_update(void)
     else KM.Tx.Error = KM_ERROR_OVHT;
 
     KM.Tx.Current_x10 = (uint16_t) (MS.Battery_Current/100); //MS.Battery_Current is in mA
-
+   // printf_("%d \n ",(uint16_t) (MS.Battery_Current/100));
 
     /* Receive Rx parameters/settings and send Tx parameters */
-    KingMeter_Service(&KM);
+   // KingMeter_Service(&KM);
 
 
     /* Apply Rx parameters */

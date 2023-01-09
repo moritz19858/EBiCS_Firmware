@@ -80,6 +80,16 @@ void putc_UART1 (char c)
 	USART1->DR = c;
 }
 
+void putc_UART3 (char c)
+{
+	if (c == '\n') {
+		while ((USART3->SR & USART_SR_TXE) == 0);  //blocks until previous byte was sent
+		USART3->DR ='\r';
+	}
+	while ((USART3->SR & USART_SR_TXE) == 0);  //blocks until previous byte was sent
+	USART3->DR = c;
+}
+
 /*
 +=============================================================================+
 | end of controller specific stuff  - no further controller dependent stuff below
@@ -96,7 +106,7 @@ int printf_(const char *format, ...)
 	va_list arg;
 
 	va_start(arg, format);
-	vfprintf_((&putc_UART1), format, arg);
+	vfprintf_((&putc_UART3), format, arg);
 	va_end(arg);
 
 	return 0;
