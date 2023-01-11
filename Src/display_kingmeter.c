@@ -151,7 +151,7 @@ void KingMeter_Init (KINGMETER_t* KM_ctx)
 
 
     KM_ctx->RxState                         = RXSTATE_STARTCODE;
-    KM_ctx->LastRx                          = 0; //hier aktuellen Timerwert als Startzeitpunkt
+    KM_ctx->DirectSetpoint                          = 0; //hier aktuellen Timerwert als Startzeitpunkt
 
     for(i=0; i<KM_MAX_RXBUFF; i++)
     {
@@ -359,14 +359,14 @@ static void KM_618U_Service(KINGMETER_t* KM_ctx)
 static void KM_901U_Service(KINGMETER_t* KM_ctx)
 {
 	static uint8_t  TxBuffer[KM_MAX_TXBUFF];
-	uint8_t  m;
-//    static uint8_t  message_position=0xFF; //recent position in message-array
+	static uint8_t  m;
+
 //    static uint8_t  k; //position of CR 0x0D
 //    static uint8_t  l; //position of LF 0x0A
     static uint8_t  last_pointer_position;
     static uint8_t  recent_pointer_position;
 //    static uint8_t  first_run_flag=0;
-//    static uint8_t  n=0;
+//    uint8_t  n=0;
 //    static uint8_t  o=0;
 
     uint16_t CheckSum;
@@ -377,10 +377,14 @@ static void KM_901U_Service(KINGMETER_t* KM_ctx)
     static uint8_t  KM_Message[32];
 
     recent_pointer_position = 64-DMA1_Channel5->CNDTR;
+//	for(m=0; m<3; m++)
+//		{
+//		if(KM_Message[last_pointer_position+m]==0x3A)n=m;            // search start byte
+//		}
 
     if(recent_pointer_position>last_pointer_position){
     	Rx_message_length=recent_pointer_position-last_pointer_position;
-    	//printf_("groesser %d, %d, %d \n ",recent_pointer_position,last_pointer_position, Rx_message_length);
+    	//printf_("groesser %d, %d, %d, %d\n ",recent_pointer_position,last_pointer_position, Rx_message_length,n);
 
     	memcpy(&KM_Message,KM_ctx->RxBuff+last_pointer_position,Rx_message_length);
     	//HAL_UART_Transmit(&huart3, (uint8_t *)&KM_Message, Rx_message_length,50);
@@ -389,7 +393,7 @@ static void KM_901U_Service(KINGMETER_t* KM_ctx)
     	Rx_message_length=recent_pointer_position+64-last_pointer_position;
      	memcpy(&KM_Message,KM_ctx->RxBuff+last_pointer_position,64-last_pointer_position);
     	memcpy(&KM_Message+64-last_pointer_position,KM_ctx->RxBuff,Rx_message_length-(64-last_pointer_position));
-    	//printf_("kleiner %d, %d, %d \n ",recent_pointer_position,last_pointer_position, Rx_message_length);
+    	//printf_("kleiner %d, %d, %d, %d \n ",recent_pointer_position,last_pointer_position, Rx_message_length,n);
     	//HAL_UART_Transmit(&huart3, (uint8_t *)&KM_Message, Rx_message_length,50);
 
 
@@ -405,15 +409,16 @@ static void KM_901U_Service(KINGMETER_t* KM_ctx)
             		{
             		CheckSum = CheckSum + KM_Message[m];            // Calculate CheckSum
             		}
-
+            		CheckSum-=(KM_Message[m]+((KM_Message[m+1])<<8));
 
      			switch(KM_Message[2])
     			        {
     			            case 0x52:      // Operation mode
-    			            	if((lowByte(CheckSum)) == KM_Message[m] && (highByte(CheckSum)) == KM_Message[m+1]) //low-byte and high-byte
+    			            	if(!CheckSum) //low-byte and high-byte
     			            		{
 
     			            		//HAL_UART_Transmit(&huart3, (uint8_t *)&KM_Message, Rx_message_length,50);
+
     			                // Decode Rx message
 
     			                KM_ctx->Rx.AssistLevel        =  KM_Message[4];                 // 0..255
@@ -426,11 +431,7 @@ static void KM_901U_Service(KINGMETER_t* KM_ctx)
     			                KM_ctx->Rx.OverSpeed          = (KM_Message[5] & 0x01);         // KM_OVERSPEED_NO / KM_OVERSPEED_YES
 
    			            		}
-    			            	else {// printf_("Checksum fail! \n ");
-
-
-
-    			            	}
+    			            	else printf_("Checksum fail!\n ");
 
     			            	kingmeter_update();
     			                // Prepare Tx message
@@ -461,7 +462,7 @@ static void KM_901U_Service(KINGMETER_t* KM_ctx)
     			            case 0x53:      // Settings mode
 
     			                // Decode Rx message
-    			            	if((lowByte(CheckSum)) == KM_ctx->RxBuff[m] && (highByte(CheckSum)) == KM_ctx->RxBuff[m+1]) //low-byte and high-byte
+    			            	if(!CheckSum) //low-byte and high-byte
     			            		{
     			            		kingmeter_update();
     			                KM_ctx->Settings.PAS_RUN_Direction   = (KM_Message[4] & 0x80) >> 7; // KM_PASDIR_FORWARD / KM_PASDIR_BACKWARD
@@ -477,7 +478,9 @@ static void KM_901U_Service(KINGMETER_t* KM_ctx)
     			    	        KM_ctx->Rx.CUR_Limit_mA                 = (KM_Message[8]&0x3F)*500;
 
     			    	        if(KM_ctx->Rx.CUR_Limit_mA==21500)autodetect();
+    			    	        printf_("0x53 %d \n",KM_ctx->Rx.CUR_Limit_mA);
     			            		}
+    			            	else printf_("Checksum fail!\n ");
 
     			                // Prepare Tx message with handshake code
     			                TxBuffer[0] = 0X3A;                                       // StartCode
@@ -504,6 +507,12 @@ static void KM_901U_Service(KINGMETER_t* KM_ctx)
     			                TxCnt = 9;
     			                break;
 
+    			            case 0x54:      // Operation mode
+    			            	if(!CheckSum) //low-byte and high-byte
+    			            		{
+    			            		KM_ctx->DirectSetpoint=KM_Message[4];
+    			            		}
+    			            	break;
     			            default:
     			                TxCnt = 0;
     			        }

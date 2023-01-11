@@ -149,7 +149,7 @@ typedef struct
 typedef struct
 {
     uint8_t         RxState;
-    uint32_t        LastRx;
+    int8_t          DirectSetpoint;
 
     uint8_t         RxBuff[KM_MAX_RXBUFF];
     uint8_t         RxCnt;

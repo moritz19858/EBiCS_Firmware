@@ -789,9 +789,12 @@ int main(void)
 					}
 				}
 //			else int32_temp_current_target=int32_temp_current_target;
-#else //legalflag
-				MS.i_q_setpoint=int32_temp_current_target;
+
 #endif //legalflag
+
+#if (DISPLAY_TYPE & DISPLAY_TYPE_KINGMETER)
+			   if(KM.DirectSetpoint)int32_temp_current_target=KM.DirectSetpoint;
+#endif
 				MS.i_q_setpoint=map(MS.Temperature, 120,130,int32_temp_current_target,0); //ramp down power with temperature to avoid overheating the motor
 				//auto KV detect
 			  if(ui8_KV_detect_flag){
@@ -1404,7 +1407,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 56000;
+  huart3.Init.BaudRate = 38400;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
