@@ -793,7 +793,7 @@ int main(void)
 #endif //legalflag
 
 #if (DISPLAY_TYPE & DISPLAY_TYPE_KINGMETER)
-			   if(KM.DirectSetpoint)int32_temp_current_target=KM.DirectSetpoint;
+			   if(KM.DirectSetpoint)int32_temp_current_target=(KM.DirectSetpoint*PH_CURRENT_MAX)>>7;
 #endif
 				MS.i_q_setpoint=map(MS.Temperature, 120,130,int32_temp_current_target,0); //ramp down power with temperature to avoid overheating the motor
 				//auto KV detect
