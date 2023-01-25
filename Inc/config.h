@@ -48,7 +48,7 @@
 #define PULSES_PER_REVOLUTION 1
 #define PH_CURRENT_MAX 600
 #define BATTERYCURRENT_MAX 15000
-#define SPEC_ANGLE -167026406L //Value no longer needed
+#define SPEC_ANGLE 417566327 //Value no longer needed
 //#define DIRDET
 #define FRAC_HIGH 30
 #define FRAC_LOW 15
